@@ -4,7 +4,15 @@ import numpy as np
 class Anime:
     def __init__(self, fileName):
         self.file = file = open(fileName, "rb")
-        self.read()
+        magic = self.integer_read(4)
+        self.time = self.integer_read(4)  # time of the file
+        self.time_text = self.file.read(81)  # Time text
+               
+        FASTMAGI10 = 0x542C
+        if magic == FASTMAGI10:
+            current_position=self.header()
+        print(current_position)
+        self.body(current_position)
         self.file.close()
 
     def Ufread(self, Type, numItems, sizeOfItem, column):
@@ -14,49 +22,38 @@ class Anime:
         ret = np.ndarray((numItems, column), dtype=dtype, buffer=pchar)
         return ret
 
-    def read(self):
+    def integer_read(self, sizeOfItem):
+        return int.from_bytes(self.file.read(sizeOfItem), "big")
+
+    def header(self):
         # HEADER
-        magic = int.from_bytes(self.file.read(4), "big")
-        FASTMAGI10 = 0x542C
-        if magic == FASTMAGI10:
-            self.time = int.from_bytes(self.file.read(4), "big")  # time of the file
-            self.time_text = self.file.read(81)  # Time text
-            self.modanim_text = self.file.read(81)  # ModAnim text
-            self.radiossRun_text = self.file.read(81)  # RadiossRun text
+        self.modanim_text = self.file.read(81)  # ModAnim text
+        self.radiossRun_text = self.file.read(81)  # RadiossRun text
 
-            # array of 10 flags
-            #        flagA[0] defines if theflagA mass is saved or not
-            #        flagA[1] defines if the node-element numbering arrays are saved or not
-            #        flagA[2] defines format :if there is 3D geometry
-            #        flagA[3] defines format :if there is 1D geometry
-            #        flagA[4] defines hierarchy
-            #        flagA[5] defines node/elt list for TH
-            #        flagA[6] defines if there is a new skew for tensor 2D
-            #        flagA[7] define if there is SPH format
-            #        flagA[8] to flagsA[9] are not yet used
+        # array of 10 flags
+        #        flagA[0] defines if theflagA mass is saved or not
+        #        flagA[1] defines if the node-element numbering arrays are saved or not
+        #        flagA[2] defines format :if there is 3D geometry
+        #        flagA[3] defines format :if there is 1D geometry
+        #        flagA[4] defines hierarchy
+        #        flagA[5] defines node/elt list for TH
+        #        flagA[6] defines if there is a new skew for tensor 2D
+        #        flagA[7] define if there is SPH format
+        #        flagA[8] to flagsA[9] are not yet used
 
-            self.flagA = self.Ufread("i4", 10, 4, 1)
-            self.nbNodes = int.from_bytes(self.file.read(4), "big")  # number of nodes
-            self.nbFacets = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of 4nodes elements
-            self.nbParts = int.from_bytes(self.file.read(4), "big")  # number of parts
-            self.nbFunc = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of nodal scalar values
-            self.nbEFunc = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of elemt scalar values
-            self.nbVect = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of vector values
-            self.nbTens = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of tensor values
-            self.nbSkew = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of skews array of the skew values defined in uint16_t * 3000
-
+        self.flagA = self.Ufread("i4", 10, 4, 1)
+        self.nbNodes = self.integer_read(4)  # number of nodes
+        self.nbFacets = self.integer_read(4)  # number of 4nodes elements
+        self.nbParts = self.integer_read(4)  # number of parts
+        self.nbFunc = self.integer_read(4)  # number of nodal scalar values
+        self.nbEFunc = self.integer_read(4)  # number of elemt scalar values
+        self.nbVect = self.integer_read(4)  # number of vector values
+        self.nbTens = self.integer_read(4)  # number of tensor values
+        self.nbSkew = self.integer_read(4)  # number of skews array of the skew values defined in uint16_t * 3000
+        return self.file.tell()
+    
+    def body(self, position=0):
+        self.file.seek(position)
         if self.nbSkew:
             self.skewValA = self.Ufread("uint16", self.nbSkew, 2, 1) / 3000
 
@@ -70,10 +67,11 @@ class Anime:
             self.delEltA = self.Ufread("S1", self.nbFacets, 1, 1)
             # deleted elements : the deleted elements stay in their original parts,
             # the delEltA indicates which elements are deleted or not
-
+            
             self.nbDel2D = 0
             for i in range(self.nbFacets):
-                int2D = self.delEltA[i]
+                int2D = self.delEltA[i][0]
+        
                 if int2D != 0:
                     self.nbDel2D += 1
 
@@ -135,18 +133,10 @@ class Anime:
         # =============================================================================
 
         if self.flagA[2]:
-            self.nbElts3D = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of  8nodes elements
-            self.nbParts3D = int.from_bytes(
-                self.file.read(4), "big"
-            )  #  number of parts
-            self.nbEFunc3D = int.from_bytes(
-                self.file.read(4), "big"
-            )  #  number of vol. elt scalar values
-            self.nbTens3D = int.from_bytes(
-                self.file.read(4), "big"
-            )  #  number of tensor values
+            self.nbElts3D = self.integer_read(4)  # number of  8nodes elements
+            self.nbParts3D = self.integer_read(4)  #  number of parts
+            self.nbEFunc3D = self.integer_read(4)  #  number of vol. elt scalar values
+            self.nbTens3D = self.integer_read(4)  #  number of tensor values
 
             # element connectivity array with local node
             #    numbering [0 to (nbNodes-1)]
@@ -224,19 +214,11 @@ class Anime:
         # =============================================================================
         if self.flagA[3]:
 
-            self.nbElts1D = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of 2 nodes elements
-            self.nbParts1D = int.from_bytes(self.file.read(4), "big")  # number of parts
-            self.nbEFunc1D = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of line. elt scalar values
-            self.nbTors1D = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of torseur values
-            self.isSkew1D = int.from_bytes(
-                self.file.read(4), "big"
-            )  # is there any skews
+            self.nbElts1D = self.integer_read(4)  # number of 2 nodes elements
+            self.nbParts1D = self.integer_read(4)  # number of parts
+            self.nbEFunc1D = self.integer_read(4)  # number of line. elt scalar values
+            self.nbTors1D = self.integer_read(4)  # number of torseur values
+            self.isSkew1D = self.integer_read(4)  # is there any skews
             # element connectivity array with local node
             #            numbering [0 to (nbNodes-1)]
             #    first element 1st node, first element 2nd node,
@@ -314,44 +296,42 @@ class Anime:
         # hierarchy
         if self.flagA[4]:
 
-            self.nbSubsets = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of subsets
+            self.nbSubsets = self.integer_read(4)  # number of subsets
             for i in range(self.nbSubsets):
                 # subset name
                 self.file.read(50)  # subsetText =
 
                 # parent number
-                self.numParent = int.from_bytes(self.file.read(4), "big")
+                self.numParent = self.integer_read(4)
                 # number of subsets sons
-                self.nbSubsetSon = int.from_bytes(self.file.read(4), "big")
+                self.nbSubsetSon = self.integer_read(4)
 
                 # list of son subset
                 if self.nbSubsetSon:
                     self.Ufread("i", self.nbSubsetSon, 4, 1)  # subsetSonA =
 
                 # number of 2D SubParts
-                self.nbSubPart2D = int.from_bytes(self.file.read(4), "big")
+                self.nbSubPart2D = self.integer_read(4)
                 if self.nbSubPart2D:
                     # list of 2D SubParts
                     self.Ufread("i", self.nbSubPart2D, 4, 1)  # subPart2DA =
 
                 # number of 3D SubParts
-                self.nbSubPart3D = int.from_bytes(self.file.read(4), "big")
+                self.nbSubPart3D = self.integer_read(4)
                 if self.nbSubPart3D:
                     # list of 3D SubParts
                     self.Ufread("i", self.nbSubPart3D, 4, 1)  # subPart3DA =
 
                 # number of 1D SubParts
-                self.nbSubPart1D = int.from_bytes(self.file.read(4), "big")
+                self.nbSubPart1D = self.integer_read(4)
                 if self.nbSubPart1D:
                     # list of 1D SubParts
                     self.Ufread("i", self.nbSubPart1D, 4, 1)  # subPart1DA =
 
             # number of Material
-            self.nbMaterial = int.from_bytes(self.file.read(4), "big")
+            self.nbMaterial = self.integer_read(4)
             # number of Properties
-            self.nbProperties = int.from_bytes(self.file.read(4), "big")
+            self.nbProperties = self.integer_read(4)
             # material names
             self.materialTextA = self.Ufread("S50", self.nbMaterial, 50, 1)
 
@@ -368,18 +348,10 @@ class Anime:
         # =============================================================================
         if self.flagA[5]:
 
-            self.nbNodesTH = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of Time History nodes
-            self.nbElts2DTH = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of Time History 2D elements
-            self.nbElts3DTH = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of Time History 3D elements
-            self.nbElts1DTH = int.from_bytes(
-                self.file.read(4), "big"
-            )  # number of Time History 1D elements
+            self.nbNodesTH = self.integer_read(4)  # number of Time History nodes
+            self.nbElts2DTH = self.integer_read(4)  # number of Time History 2D elements
+            self.nbElts3DTH = self.integer_read(4)  # number of Time History 3D elements
+            self.nbElts1DTH = self.integer_read(4)  # number of Time History 1D elements
             # node list
             self.nodes2THA = self.Ufread("i", self.nbNodesTH, 4, 1)
             # node names
@@ -404,10 +376,10 @@ class Anime:
         # READ SPH PART */
         # =============================================================================
         if self.flagA[7]:
-            self.nbEltsSPH = int.from_bytes(self.file.read(4), "big")
-            self.nbPartsSPH = int.from_bytes(self.file.read(4), "big")
-            self.nbEFuncSPH = int.from_bytes(self.file.read(4), "big")
-            self.nbTensSPH = int.from_bytes(self.file.read(4), "big")
+            self.nbEltsSPH = self.integer_read(4)
+            self.nbPartsSPH = self.integer_read(4)
+            self.nbEFuncSPH = self.integer_read(4)
+            self.nbTensSPH = self.integer_read(4)
 
             if self.nbEltsSPH:
                 self.connecSPH = self.Ufread("i", self.nbEltsSPH, 4, 1)
