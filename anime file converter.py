@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 
@@ -7,11 +8,10 @@ class Anime:
         magic = self.integer_read(4)
         self.time = self.integer_read(4)  # time of the file
         self.time_text = self.file.read(81)  # Time text
-               
+
         FASTMAGI10 = 0x542C
         if magic == FASTMAGI10:
-            current_position=self.header()
-        print(current_position)
+            current_position = self.header()
         self.body(current_position)
         self.file.close()
 
@@ -49,9 +49,10 @@ class Anime:
         self.nbEFunc = self.integer_read(4)  # number of elemt scalar values
         self.nbVect = self.integer_read(4)  # number of vector values
         self.nbTens = self.integer_read(4)  # number of tensor values
-        self.nbSkew = self.integer_read(4)  # number of skews array of the skew values defined in uint16_t * 3000
+        # number of skews array of the skew values defined in uint16_t * 3000
+        self.nbSkew = self.integer_read(4)
         return self.file.tell()
-    
+
     def body(self, position=0):
         self.file.seek(position)
         if self.nbSkew:
@@ -67,11 +68,11 @@ class Anime:
             self.delEltA = self.Ufread("S1", self.nbFacets, 1, 1)
             # deleted elements : the deleted elements stay in their original parts,
             # the delEltA indicates which elements are deleted or not
-            
+
             self.nbDel2D = 0
             for i in range(self.nbFacets):
                 int2D = self.delEltA[i][0]
-        
+
                 if int2D != 0:
                     self.nbDel2D += 1
 
@@ -91,7 +92,8 @@ class Anime:
             if self.nbFunc:
                 self.funcA = self.Ufread("f", self.nbNodes * self.nbFunc, 4, 1)
             if self.nbEFunc:
-                self.eFuncA = self.Ufread("f", self.nbFacets * self.nbEFunc, 4, 1)
+                self.eFuncA = self.Ufread(
+                    "f", self.nbFacets * self.nbEFunc, 4, 1)
 
         # vectors values
         if self.nbVect:
@@ -134,9 +136,10 @@ class Anime:
 
         if self.flagA[2]:
             self.nbElts3D = self.integer_read(4)  # number of  8nodes elements
-            self.nbParts3D = self.integer_read(4)  #  number of parts
-            self.nbEFunc3D = self.integer_read(4)  #  number of vol. elt scalar values
-            self.nbTens3D = self.integer_read(4)  #  number of tensor values
+            self.nbParts3D = self.integer_read(4)  # number of parts
+            # number of vol. elt scalar values
+            self.nbEFunc3D = self.integer_read(4)
+            self.nbTens3D = self.integer_read(4)  # number of tensor values
 
             # element connectivity array with local node
             #    numbering [0 to (nbNodes-1)]
@@ -180,14 +183,16 @@ class Anime:
                 #  array of scalar functions names
                 self.fText3DA = self.Ufread("S81", self.nbEFunc3D, 81, 1)
                 #  array of nodal,element scalar values
-                self.eFunc3DA = self.Ufread("f", self.nbEFunc3D * self.nbElts3D, 4, 1)
+                self.eFunc3DA = self.Ufread(
+                    "f", self.nbEFunc3D * self.nbElts3D, 4, 1)
 
             # tensors values
             if self.nbTens3D:
                 # array of tensor names
                 self.tText3DA = self.Ufread("S81", self.nbTens3D, 81, 1)
                 # read the array of x,y,z,xy,yz,zx tensor values for each element
-                self.tensVal3DA = self.Ufread("f", self.nbElts3D * self.nbTens3D, 4, 6)
+                self.tensVal3DA = self.Ufread(
+                    "f", self.nbElts3D * self.nbTens3D, 4, 6)
             # mass : nodal, elementar mass
             if self.flagA[0]:
                 self.eMass3DA = self.Ufread("f", self.nbElts3D, 4, 1)
@@ -216,7 +221,8 @@ class Anime:
 
             self.nbElts1D = self.integer_read(4)  # number of 2 nodes elements
             self.nbParts1D = self.integer_read(4)  # number of parts
-            self.nbEFunc1D = self.integer_read(4)  # number of line. elt scalar values
+            # number of line. elt scalar values
+            self.nbEFunc1D = self.integer_read(4)
             self.nbTors1D = self.integer_read(4)  # number of torseur values
             self.isSkew1D = self.integer_read(4)  # is there any skews
             # element connectivity array with local node
@@ -254,7 +260,8 @@ class Anime:
                 self.fText1DA = self.Ufread("S81", self.nbEFunc1D, 81, 1)
 
                 # array of nodal,element scalar values
-                self.eFunc1DA = self.Ufread("f", self.nbElts1D * self.nbEFunc1D, 4, 1)
+                self.eFunc1DA = self.Ufread(
+                    "f", self.nbElts1D * self.nbEFunc1D, 4, 1)
 
             # tensors values
             if self.nbTors1D:
@@ -263,7 +270,8 @@ class Anime:
                 self.tText1DA = self.Ufread("S81", self.nbTors1D, 81, 1)
 
                 # read the array of x,y,z,xy,yz,zx tensor values for each element
-                self.torsVal1DA = self.Ufread("f", self.nbElts1D * self.nbTors1D, 4, 9)
+                self.torsVal1DA = self.Ufread(
+                    "f", self.nbElts1D * self.nbTors1D, 4, 9)
 
             if self.isSkew1D:
 
@@ -348,10 +356,14 @@ class Anime:
         # =============================================================================
         if self.flagA[5]:
 
-            self.nbNodesTH = self.integer_read(4)  # number of Time History nodes
-            self.nbElts2DTH = self.integer_read(4)  # number of Time History 2D elements
-            self.nbElts3DTH = self.integer_read(4)  # number of Time History 3D elements
-            self.nbElts1DTH = self.integer_read(4)  # number of Time History 1D elements
+            self.nbNodesTH = self.integer_read(
+                4)  # number of Time History nodes
+            # number of Time History 2D elements
+            self.nbElts2DTH = self.integer_read(4)
+            # number of Time History 3D elements
+            self.nbElts3DTH = self.integer_read(4)
+            # number of Time History 1D elements
+            self.nbElts1DTH = self.integer_read(4)
             # node list
             self.nodes2THA = self.Ufread("i", self.nbNodesTH, 4, 1)
             # node names
@@ -397,12 +409,14 @@ class Anime:
 
                 self.scalTextSPH = self.Ufread("S81", self.nbEFuncSPH, 81, 1)
 
-                self.eFuncSPH = self.Ufread("f", self.nbEFuncSPH * self.nbEltsSPH, 4, 1)
+                self.eFuncSPH = self.Ufread(
+                    "f", self.nbEFuncSPH * self.nbEltsSPH, 4, 1)
 
             if self.nbTensSPH:
                 # SPH tensors are just like 3D tensors
                 self.tensTextSPH = self.Ufread("S81", self.nbTensSPH, 81, 1)
-                self.tensValSPH = self.Ufread("f", self.bEltsSPH * self.nbTensSPH, 4, 6)
+                self.tensValSPH = self.Ufread(
+                    "f", self.bEltsSPH * self.nbTensSPH, 4, 6)
 
             # sph mass
             if self.flagA[0]:
@@ -420,8 +434,6 @@ class Anime:
                 self.matPartSPH = self.Ufread("i", self.nbPartsSPH, 4, 1)
                 self.propPartSPH = self.Ufread("i", self.nbPartsSPH, 4, 1)
 
-
-import os
 
 animation = []
 for i in os.listdir():

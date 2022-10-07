@@ -4,301 +4,302 @@ import struct
 
 # I think there is an error in original c file at the line of NUMGEO
 
-# def unpack(numItems, file):
-#     return struct.unpack("s" * numItems, file.read(numItems))
-def names(title, ICODE):
-    variables = ["IE", "KE", "XMOM", "YMOM", "ZMOM", "MASS", "HE", "TURBKE", "XCG", "YCG", "ZCG", "XXMOM", "YYMOM",
-                 "ZZMOM", "IXX", "IYY", "IZZ", "IXY", "IYZ", "IZX", "RIE", "KERB", "RKERB", "RKE", "HEAT", "ZZMOM", "ZZMOM", "HEAT"]
-    if 1 <= ICODE <= 28:
-        name = title + " " + variables[ICODE + 1]
-    else:
-        name = title + " empty"
-    return name
+class th_reader:
+    def __init__(self, fileName):
+        self.file = open(fileName, "rb")
+        self.read()
+        self.file.close()
 
+    def names(self, title, ICODE):
+        variables = ["IE", "KE", "XMOM", "YMOM", "ZMOM", "MASS", "HE", "TURBKE", "XCG", "YCG", "ZCG", "XXMOM", "YYMOM",
+                     "ZZMOM", "IXX", "IYY", "IZZ", "IXY", "IYZ", "IZX", "RIE", "KERB", "RKERB", "RKE", "HEAT", "ZZMOM", "ZZMOM", "HEAT"]
+        if 1 <= ICODE <= 28:
+            name = title + " " + variables[ICODE + 1]
+        else:
+            name = title + " empty"
+        return name
 
-def Ufread(Type, numItems, sizeOfItem, column, file):
-    total = sizeOfItem * numItems * column
-    pchar = file.read(total)
-    dtype = np.dtype(Type).newbyteorder("big")
-    ret = np.ndarray((numItems, column), dtype=dtype, buffer=pchar)
-    return ret
+    def Ufread(self, Type, numItems, sizeOfItem, column, file):
+        total = sizeOfItem * numItems * column
+        pchar = self.file.read(total)
+        dtype = np.dtype(Type).newbyteorder("big")
+        ret = np.ndarray((numItems, column), dtype=dtype, buffer=pchar)
+        return ret
 
+    def integer_read(self, sizeOfItem):
+        return int.from_bytes(self.file.read(sizeOfItem), "big")
 
-fileName = "Cell_Phone_DropT01"
+    def float_read(self, sizeOfItem):
+        return struct.unpack(">f", self.file.read(sizeOfItem))
 
-file = open(fileName, "rb")
+    fileName = "Cell_Phone_DropT01"
 
+    def read(self):
+        self.file.seek(4, 1)
+        thicode = self.integer_read(4)
 
-length = int.from_bytes(file.read(4), "big")
-thicode = int.from_bytes(file.read(4), "big")
+        if thicode >= 4021:
+            titleLength = 100
 
+        elif thicode >= 3041:
+            titleLength = 80
 
-if thicode >= 4021:
-    titleLength = 100
+        else:
+            titleLength = 40
 
-elif thicode >= 3041:
-    titleLength = 80
+        ccode = self.file.read(80)
+        self.file.seek(4, 1)
+        self.file.seek(4, 1)
+        ccode = self.file.read(80)
+        self.file.seek(4, 1)
 
-else:
-    titleLength = 40
+        # #-------ADDITIONAL RECORDS------------*/
+        if thicode > 3050:
+            # "ADDITIONAL RECORDS\n");
+            self.file.seek(4, 1)
+            icode = self.integer_read(4)
+            self.file.seek(4, 1)
 
+            # 1ST RECORD : title length*/
+            self.file.seek(4, 1)
+            icode = self.integer_read(4)
+            self.file.seek(4, 1)
 
-ccode = file.read(80)
-length = int.from_bytes(file.read(4), "big")
-length = int.from_bytes(file.read(4), "big")
-ccode = file.read(80)
-length = int.from_bytes(file.read(4), "big")
+            # 2ND RECORD : FAC_MASS,FAC_LENGTH,FAC_TIME */
 
-# #-------ADDITIONAL RECORDS------------*/
-if thicode > 3050:
-    # "ADDITIONAL RECORDS\n");
-    length = int.from_bytes(file.read(4), "big")
-    icode = int.from_bytes(file.read(4), "big")
-    length = int.from_bytes(file.read(4), "big")
+            self.file.seek(4, 1)
+            rcode = self.float_read(4)
+            rcode = self.float_read(4)
+            rcode = self.float_read(4)
+            self.file.seek(4, 1)
 
-    # 1ST RECORD : title length*/
-    length = int.from_bytes(file.read(4), "big")
-    icode = int.from_bytes(file.read(4), "big")
-    length = int.from_bytes(file.read(4), "big")
+        # #-------HIERARCHY INFO------------*/
+        # #        printf("*********************************\n");
+        #         printf("HIERARCHY INFO_\n");
 
-    # 2ND RECORD : FAC_MASS,FAC_LENGTH,FAC_TIME */
+        self.file.seek(4, 1)
+        NPART_NTHPART = self.integer_read(4)
+        NUMMAT = self.integer_read(4)
+        NUMGEO = self.integer_read(4)
+        self.NSUBS = self.integer_read(4)
+        NTHGRP2 = self.integer_read(4)
+        NGLOB = self.integer_read(4)
+        # TODO   Delete below line
+        nbglobVar = NGLOB
+        self.file.seek(4, 1)
+        self.NVAR_PART = np.zeros(NPART_NTHPART, dtype="i")
+        NBELEM_THGRP = np.zeros(NTHGRP2)
+        self.NVAR_THGRP = np.zeros(NTHGRP2)
+        if NGLOB > 0:
+            self.file.seek(4, 1)
+            for i in range(NGLOB):
+                self.file.seek(4, 1)
 
-    length = int.from_bytes(file.read(4), "big")
-    rcode = struct.unpack(">f", file.read(4))
-    rcode = struct.unpack(">f", file.read(4))
-    rcode = struct.unpack(">f", file.read(4))
-    length = int.from_bytes(file.read(4), "big")
+            self.file.seek(4, 1)
+        # -------PART DESCRIPTION------------*/
+        #        printf("*********************************\n");
+        #        printf("PART DESCRIPTION reading part _%d_\n",NPART_NTHPART);
+        #        printf("*********************************\n");*/
+        self.NVAR_PART_TOT = 0
+        cptThPartNames = 0
+        ThPartNames = []
+        if NPART_NTHPART > 0:
+            for i in range(NPART_NTHPART):
+                self.file.seek(4, 1)
+                self.file.seek(4, 1)
+                title = self.file.read(titleLength)
+                self.file.seek(4, 1)
+                self.file.seek(4, 1)
+                self.file.seek(4, 1)
+                self.NVAR = self.integer_read(4)
+                self.file.seek(4, 1)
 
-# #-------HIERARCHY INFO------------*/
-# #        printf("*********************************\n");
-#         printf("HIERARCHY INFO_\n");
+                self.NVAR_PART[i] = self.NVAR
+                self.NVAR_PART_TOT = self.NVAR_PART_TOT + self.NVAR
 
-length = int.from_bytes(file.read(4), "big")
-NPART_NTHPART = int.from_bytes(file.read(4), "big")
-NUMMAT = int.from_bytes(file.read(4), "big")
-NUMGEO = int.from_bytes(file.read(4), "big")
-NSUBS = int.from_bytes(file.read(4), "big")
-NTHGRP2 = int.from_bytes(file.read(4), "big")
-NGLOB = int.from_bytes(file.read(4), "big")
-# TODO   Delete below line
-nbglobVar = NGLOB
-length = int.from_bytes(file.read(4), "big")
-NVAR_PART = np.zeros(NPART_NTHPART, dtype="i")
-NBELEM_THGRP = np.zeros(NTHGRP2)
-NVAR_THGRP = np.zeros(NTHGRP2)
-if NGLOB > 0:
-    length = int.from_bytes(file.read(4), "big")
-    for i in range(NGLOB):
-        ICODE = int.from_bytes(file.read(4), "big")
+                for j in range(self.NVAR):
+                    if j == 0:
+                        self.file.seek(4, 1)
+                    text = self.integer_read(4)
+                    if j == self.NVAR - 1:
+                        self.file.seek(4, 1)
+                    ThPartNames = self.names(title, text)
 
-    length = int.from_bytes(file.read(4), "big")
-# -------PART DESCRIPTION------------*/
-#        printf("*********************************\n");
-#        printf("PART DESCRIPTION reading part _%d_\n",NPART_NTHPART);
-#        printf("*********************************\n");*/
-NVAR_PART_TOT = 0
-cptThPartNames = 0
-ThPartNames = []
-if NPART_NTHPART > 0:
-    for i in range(NPART_NTHPART):
-        length = int.from_bytes(file.read(4), "big")
-        ICODE = int.from_bytes(file.read(4), "big")
-        title = file.read(titleLength)
-        ICODE = int.from_bytes(file.read(4), "big")
-        ICODE = int.from_bytes(file.read(4), "big")
-        ICODE = int.from_bytes(file.read(4), "big")
-        NVAR = int.from_bytes(file.read(4), "big")
-        length = int.from_bytes(file.read(4), "big")
+        # -------MATER DESCRIPTION------------*/
+        #        printf("*********************************\n");
+        # printf("MATER DESCRIPTION _%d_\n",NUMMAT);
+        # printf("*********************************\n");*/
+        if NUMMAT > 0:
 
-        NVAR_PART[i] = NVAR
-        NVAR_PART_TOT = NVAR_PART_TOT + NVAR
+            for i in range(NUMMAT):
+                self.file.seek(4, 1)
+                self.file.seek(4, 1)
+                CCODE = self.file.read(titleLength)
+                self.file.seek(4, 1)
+        # *-------GEO DESCRIPTION------------*/
+        # /*        printf("*********************************\n");
+        # printf("GEO DESCRIPTION _%d_\n",NUMGEO);
+        # printf("*********************************\n");*/
+        if NUMGEO > 0:
+            for i in range(NUMGEO):
+                self.file.seek(4, 1)
+                self.file.seek(4, 1)
+                CCODE = self.file.read(titleLength)
+                self.file.seek(4, 1)
 
-        for j in range(NVAR):
-            if j == 0:
-                length = int.from_bytes(file.read(4), "big")
-            ICODE = int.from_bytes(file.read(4), "big")
-            if j == NVAR - 1:
-                length = int.from_bytes(file.read(4), "big")
-            ThPartNames = names(title, ICODE)
+        ThSubsNames = []
+        self.NVAR_SUBS = 0
+        if self.NSUBS > 0:
 
-# -------MATER DESCRIPTION------------*/
-#        printf("*********************************\n");
-# printf("MATER DESCRIPTION _%d_\n",NUMMAT);
-# printf("*********************************\n");*/
-if NUMMAT > 0:
+            for i in range(self.NSUBS):
+                self.file.seek(4, 1)
+                self.file.seek(4, 1)
 
-    for i in range(NUMMAT):
-        length = int.from_bytes(file.read(4), "big")
-        ICODE = int.from_bytes(file.read(4), "big")
-        CCODE = file.read(titleLength)
-        length = int.from_bytes(file.read(4), "big")
-# *-------GEO DESCRIPTION------------*/
-# /*        printf("*********************************\n");
-# printf("GEO DESCRIPTION _%d_\n",NUMGEO);
-# printf("*********************************\n");*/
-if NUMGEO > 0:
-    for i in range(NUMGEO):
-        length = int.from_bytes(file.read(4), "big")
-        ICODE = int.from_bytes(file.read(4), "big")
-        CCODE = file.read(titleLength)
-        length = int.from_bytes(file.read(4), "big")
+                self.file.seek(4, 1)
+                self.NBSUBSF = self.integer_read(4)
 
-ThSubsNames = []
-NVAR_SUBS = 0
-if NSUBS > 0:
+                NBPARTF = self.integer_read(4)
 
-    for i in range(NSUBS):
-        length = int.from_bytes(file.read(4), "big")
-        ICODE = int.from_bytes(file.read(4), "big")
+                self.NVAR = self.integer_read(4)
+                title = self.file.read(titleLength)
 
-        ICODE = int.from_bytes(file.read(4), "big")
-        NBSUBSF = int.from_bytes(file.read(4), "big")
+                self.file.seek(4, 1)
+                if self.NBSUBSF > 0:
 
-        NBPARTF = int.from_bytes(file.read(4), "big")
+                    for j in range(self.NBSUBSF):
+                        if j == 0:
+                            self.file.seek(4, 1)
+                        self.file.seek(4, 1)
+                        if j == self.NBSUBSF - 1:
+                            self.file.seek(4, 1)
+                if NBPARTF > 0:
 
-        NVAR = int.from_bytes(file.read(4), "big")
-        title = file.read(titleLength)
+                    for j in range(NBPARTF):
+                        if j == 0:
+                            self.file.seek(4, 1)
+                        self.file.seek(4, 1)
+                        if j == NBPARTF - 1:
+                            self.file.seek(4, 1)
+                if self.NVAR > 0:
 
-        length = int.from_bytes(file.read(4), "big")
-        if NBSUBSF > 0:
+                    for j in range(self.NVAR):
+                        if j == 0:
+                            self.file.seek(4, 1)
+                        text = self.integer_read(4)
+                        if j == self.NVAR - 1:
+                            self.file.seek(4, 1)
+                        self.NVAR_SUBS = self.NVAR_SUBS + 1
+                        ThSubsNames = self.names(title, text)
 
-            for j in range(NBSUBSF):
-                if j == 0:
-                    length = int.from_bytes(file.read(4), "big")
-                ICODE = int.from_bytes(file.read(4), "big")
-                if j == NBSUBSF - 1:
-                    length = int.from_bytes(file.read(4), "big")
-        if NBPARTF > 0:
+        # *-------TH GROUP------------*/
+        # /*        printf("*********************************\n");
+        #         printf("TH GROUP_%d_\n",NTHGRP2);
+        #         printf("*********************************\n");*/
+        ThGroupNames = []
+        if NTHGRP2 > 0:
+            for i in range(NTHGRP2):
+                self.file.seek(4, 1)
+                self.file.seek(4, 1)
+                self.file.seek(4, 1)
+                self.file.seek(4, 1)
 
-            for j in range(NBPARTF):
-                if j == 0:
-                    length = int.from_bytes(file.read(4), "big")
-                ICODE = int.from_bytes(file.read(4), "big")
-                if j == NBPARTF - 1:
-                    length = int.from_bytes(file.read(4), "big")
-        if NVAR > 0:
+                NBELEM = self.integer_read(4)
+                NBELEM_THGRP[i] = NBELEM
 
-            for j in range(NVAR):
-                if j == 0:
-                    length = int.from_bytes(file.read(4), "big")
-                ICODE = int.from_bytes(file.read(4), "big")
-                if j == NVAR - 1:
-                    length = int.from_bytes(file.read(4), "big")
-                NVAR_SUBS = NVAR_SUBS + 1
-                ThSubsNames = names(title, ICODE)
+                self.NVAR = self.integer_read(4)
+                self.NVAR_THGRP[i] = self.NVAR
 
-# *-------TH GROUP------------*/
-# /*        printf("*********************************\n");
-#         printf("TH GROUP_%d_\n",NTHGRP2);
-#         printf("*********************************\n");*/
-ThGroupNames = []
-if NTHGRP2 > 0:
-    for i in range(NTHGRP2):
-        length = int.from_bytes(file.read(4), "big")
-        ICODE = int.from_bytes(file.read(4), "big")
-        ICODE = int.from_bytes(file.read(4), "big")
-        ICODE = int.from_bytes(file.read(4), "big")
+                NameOutput = self.file.read(titleLength)
+                self.file.seek(4, 1)
 
-        NBELEM = int.from_bytes(file.read(4), "big")
-        NBELEM_THGRP[i] = NBELEM
+                for j in range(NBELEM):
 
-        NVAR = int.from_bytes(file.read(4), "big")
-        NVAR_THGRP[i] = NVAR
+                    self.file.seek(4, 1)
+                    IdRequest = self.integer_read(4)
 
-        NameOutput = file.read(titleLength)
-        length = int.from_bytes(file.read(4), "big")
+                    NameRequest = self.file.read(titleLength)
 
-        for j in range(NBELEM):
+                    self.file.seek(4, 1)
 
-            length = int.from_bytes(file.read(4), "big")
-            IdRequest = int.from_bytes(file.read(4), "big")
+                    for k in range(self.NVAR):
+                        ThGroupNames[k] = title
 
-            NameRequest = file.read(titleLength)
+                for j in range(self.NVAR):
+                    if j == 0:
+                        self.file.seek(4, 1)
+                    self.file.seek(4, 1)
+                    if j == self.NVAR - 1:
+                        self.file.seek(4, 1)
 
-            length = int.from_bytes(file.read(4), "big")
-
-            for k in range(NVAR):
-                ThGroupNames[k] = title
-
-        for j in range(NVAR):
-            if j == 0:
-                length = int.from_bytes(file.read(4), "big")
-            ICODE = int.from_bytes(file.read(4), "big")
-            if j == NVAR - 1:
-                length = int.from_bytes(file.read(4), "big")
-
-EndOfFile = 2
-cptData = 0
-allData = []
-while EndOfFile == 2:
-    # /"*-----------------------------
-    #      TIME
-    # --------"---------------------*/
-    length = int.from_bytes(file.read(4), "big")
-    code = file.read(4)
-    if code == b"":
-        break
-    rcode = struct.unpack(">f", code)
-    allData.append(rcode)
-    cptData += 1
-    length = int.from_bytes(file.read(4), "big")
-    if EndOfFile == 1:
-        break
-        # //TIME=*RCODE;
-    # /*-----------------------------
-    #      GLOBAL VARIABLES
-    # -----------------------------*/
-    nbval = NGLOB
-    for i in range(nbval):
-        if i == 0:
-            length = int.from_bytes(file.read(4), "big")
-        code = file.read(4)
-        if code == b"":
-            break
-        rcode = struct.unpack(">f", code)
-        allData.append(rcode)
-
-        if i == nbval - 1:
-            length = int.from_bytes(file.read(4), "big")
-
-# # /*-----------------------------
-# #      PART VARIABLES
-# # -----------------------------*/
-    if (NPART_NTHPART > 0):
-        if (NVAR_PART_TOT > 0):
-            length = int.from_bytes(file.read(4), "big")
-        for i in range(NPART_NTHPART):
-            for j in range(NVAR_PART[i]):
-                code = file.read(4)
+        EndOfFile = 2
+        cptData = 0
+        self.allData = []
+        while EndOfFile == 2:
+            # /"*-----------------------------
+            #      TIME
+            # --------"---------------------*/
+            self.file.seek(4, 1)
+            code = self.file.read(4)
+            if code == b"":
+                break
+            rcode = struct.unpack(">f", code)
+            self.allData.append(rcode)
+            cptData += 1
+            self.file.seek(4, 1)
+            if EndOfFile == 1:
+                break
+                # //TIME=*RCODE;
+            # /*-----------------------------
+            #      GLOBAL VARIABLES
+            # -----------------------------*/
+            nbval = NGLOB
+            for i in range(nbval):
+                if i == 0:
+                    self.file.seek(4, 1)
+                code = self.file.read(4)
                 if code == b"":
                     break
                 rcode = struct.unpack(">f", code)
-                allData.append(rcode)
+                self.allData.append(rcode)
 
-        if (NVAR_PART_TOT > 0):
-            length = int.from_bytes(file.read(4), "big")
+                if i == nbval - 1:
+                    self.file.seek(4, 1)
 
-# # /*-----------------------------
-# #      SUBSET VARIABLES
-# # -----------------------------*/
-    if(NVAR_SUBS > 0):
-        length = int.from_bytes(file.read(4), "big")
-        for i in range(NVAR_SUBS):
-            rcode = struct.unpack(">f", file.read(4))
-            allData.append(rcode)
+        # # /*-----------------------------
+        # #      PART VARIABLES
+        # # -----------------------------*/
+            if (NPART_NTHPART > 0):
+                if (self.NVAR_PART_TOT > 0):
+                    self.file.seek(4, 1)
+                for i in range(NPART_NTHPART):
+                    for j in range(self.NVAR_PART[i]):
+                        code = self.file.read(4)
+                        if code == b"":
+                            break
+                        rcode = struct.unpack(">f", code)
+                        self.allData.append(rcode)
 
-        length = int.from_bytes(file.read(4), "big")
+                if (self.NVAR_PART_TOT > 0):
+                    self.file.seek(4, 1)
 
+        # # /*-----------------------------
+        # #      SUBSET VARIABLES
+        # # -----------------------------*/
+            if(self.NVAR_SUBS > 0):
+                self.file.seek(4, 1)
+                for i in range(self.NVAR_SUBS):
+                    rcode = self.float_read(4)
+                    self.allData.append(rcode)
 
-# # /*-------------------------------------------------------
-# #     TH GROUP
-# # -------------------------------------------------------*/
-    for i in range(NTHGRP2):
-        length = int.from_bytes(file.read(4), "big")
-        for j in range(NBELEM_THGRP[i]):
-            for k in range(NVAR_THGRP[i]):
-                rcode = struct.unpack(">f", file.read(4))
-                allData.append(rcode)
-        length = int.from_bytes(file.read(4), "big")
+                self.file.seek(4, 1)
 
-file.close()
+        # # /*-------------------------------------------------------
+        # #     TH GROUP
+        # # -------------------------------------------------------*/
+            for i in range(NTHGRP2):
+                self.file.seek(4, 1)
+                for j in range(NBELEM_THGRP[i]):
+                    for k in range(self.NVAR_THGRP[i]):
+                        rcode = self.float_read(4)
+                        self.allData.append(rcode)
+                self.file.seek(4, 1)
